@@ -11,20 +11,13 @@ import {
 } from "@mui/material";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import QrCodeScannerIcon from "@mui/icons-material/QrCodeScanner";
-import {
-  Product,
-  BulkPrice,
-  Promotion,
-  dbOperations,
-  ProductVariant,
-} from "../utils/database";
+import { Product, BulkPrice, Promotion, dbOperations } from "../utils/database";
 import { CategorySelector } from "./CategorySelector";
 import { Category } from "../utils/categoryTypes";
 import { BarcodeGenerator } from "./BarcodeGenerator";
 import PricingManager from "./PricingManager";
 import { useProducts } from "../contexts/ProductContext";
 import { BarcodeScanner } from "./BarcodeScanner";
-import ProductVariantManager from "./ProductVariant";
 
 interface ProductFormProps {
   open: boolean;
@@ -52,7 +45,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
 }) => {
   const [isPricingManagerOpen, setIsPricingManagerOpen] = useState(false);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
-  const [isVariantManagerOpen, setIsVariantManagerOpen] = useState(false);
+
   const { addProduct, updateProduct } = useProducts();
   const [formData, setFormData] = useState<Product>(product || initialProduct);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -146,10 +139,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
   const handlePromotionChange = (promotion: Promotion | undefined) => {
     setFormData((prev) => ({ ...prev, promotion }));
-  };
-
-  const handleVariantsChange = (variants: ProductVariant[]) => {
-    setFormData((prev) => ({ ...prev, variants }));
   };
 
   return (
@@ -318,13 +307,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button
-              startIcon={<LocalOfferIcon />}
-              onClick={() => setIsVariantManagerOpen(true)}
-              color="secondary"
-            >
-              Manage Variants
-            </Button>
             <Button onClick={onClose}>Cancel</Button>
             <Button type="submit" variant="contained" color="primary">
               {product ? "Update" : "Add"} Product
@@ -359,13 +341,6 @@ const ProductForm: React.FC<ProductFormProps> = ({
         promotion={formData.promotion}
         onBulkPricesChange={handleBulkPricesChange}
         onPromotionChange={handlePromotionChange}
-      />
-      <ProductVariantManager
-        open={isVariantManagerOpen}
-        onClose={() => setIsVariantManagerOpen(false)}
-        variants={formData.variants || []}
-        onVariantsChange={handleVariantsChange}
-        attributeTypes={formData.attributeTypes || []}
       />
     </>
   );

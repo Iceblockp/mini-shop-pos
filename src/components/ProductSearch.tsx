@@ -14,7 +14,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
-  console.log("product is", products);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const filteredProducts = products.filter(
     (product) =>

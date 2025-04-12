@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -29,8 +29,14 @@ import { useProducts } from "../contexts/ProductContext";
 import { Product } from "../utils/database";
 
 const ProductList: React.FC = () => {
-  const { products, loading, error, searchProducts, deleteProduct } =
-    useProducts();
+  const {
+    products,
+    loading,
+    error,
+    searchProducts,
+    deleteProduct,
+    resetSearch,
+  } = useProducts();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isInventoryAdjustmentOpen, setIsInventoryAdjustmentOpen] =
@@ -43,6 +49,13 @@ const ProductList: React.FC = () => {
     setSearchQuery(query);
     // searchProducts(query);
   };
+
+  useEffect(() => {
+    return () => {
+      // console.log("first");
+      resetSearch();
+    };
+  }, [resetSearch]);
 
   if (loading) {
     return <Typography>Loading products...</Typography>;

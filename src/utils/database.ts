@@ -29,29 +29,14 @@ export interface Product {
   bulkPrices?: BulkPrice[];
   promotion?: Promotion;
   barcode?: string;
-  variants?: ProductVariant[];
-  attributeTypes?: string[];
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-export interface ProductVariant {
-  id?: number;
-  sku: string;
-  name: string;
-  price: number;
-  stockQuantity: number;
-  attributes: {
-    [key: string]: string;
-  };
-  productId?: number;
-}
-
 // Initialize IndexedDB
 const dbName = "posDB";
-const dbVersion = 6;
+const dbVersion = 8;
 const productStoreName = "products";
-const variantStoreName = "variants";
 const inventoryMovementStoreName = "inventoryMovements";
 const transactionStoreName = "transactions";
 const categoryStoreName = "categories";
@@ -74,15 +59,6 @@ const openDB = (): Promise<IDBDatabase> => {
         store.createIndex("category", "category", { unique: false });
         store.createIndex("price", "price", { unique: false });
         store.createIndex("promotion", "promotion", { unique: false });
-      }
-
-      if (!db.objectStoreNames.contains(variantStoreName)) {
-        const variantStore = db.createObjectStore(variantStoreName, {
-          keyPath: "id",
-          autoIncrement: true,
-        });
-        variantStore.createIndex("sku", "sku", { unique: true });
-        variantStore.createIndex("productId", "productId", { unique: false });
       }
 
       if (!db.objectStoreNames.contains(inventoryMovementStoreName)) {
@@ -175,45 +151,7 @@ export const dbOperations = {
         updatedAt: new Date(),
       });
 
-      request.onsuccess = async () => {
-        // If there are variants, update them in a separate transaction
-        if (product.variants && product.variants.length > 0) {
-          try {
-            const variantTransaction = db.transaction(
-              variantStoreName,
-              "readwrite"
-            );
-            const variantStore =
-              variantTransaction.objectStore(variantStoreName);
-
-            for (const variant of product.variants) {
-              if (variant.id) {
-                await new Promise((resolve, reject) => {
-                  const req = variantStore.put({
-                    ...variant,
-                    productId: product.id,
-                  });
-                  req.onsuccess = () => resolve(undefined);
-                  req.onerror = () => reject(req.error);
-                });
-              } else {
-                await new Promise((resolve, reject) => {
-                  const req = variantStore.add({
-                    ...variant,
-                    productId: product.id,
-                  });
-                  req.onsuccess = () => resolve(undefined);
-                  req.onerror = () => reject(req.error);
-                });
-              }
-            }
-          } catch (error) {
-            console.error("Error updating variants:", error);
-            // Continue even if variant update fails
-          }
-        }
-        resolve();
-      };
+      request.onsuccess = () => resolve();
 
       request.onerror = () => reject(request.error);
 
@@ -223,48 +161,15 @@ export const dbOperations = {
     });
   },
 
-  // Get product variants
-  getProductVariants: async (productId: number): Promise<ProductVariant[]> => {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(variantStoreName, "readonly");
-      const store = transaction.objectStore(variantStoreName);
-      const index = store.index("productId");
-      const request = index.getAll(productId);
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  },
-
   // Delete product
   deleteProduct: async (id: number): Promise<void> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(
-        [productStoreName, variantStoreName],
-        "readwrite"
-      );
+      const transaction = db.transaction(productStoreName, "readwrite");
       const store = transaction.objectStore(productStoreName);
-      const variantStore = transaction.objectStore(variantStoreName);
-
-      // Delete all variants associated with the product
-      const variantIndex = variantStore.index("productId");
-      const variantRequest = variantIndex.getAll(id);
-
-      variantRequest.onsuccess = () => {
-        const variants = variantRequest.result;
-        variants.forEach((variant) => {
-          variantStore.delete(variant.id!);
-        });
-
-        // Delete the product
-        const request = store.delete(id);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      };
-
-      variantRequest.onerror = () => reject(variantRequest.error);
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   },
 
@@ -276,7 +181,8 @@ export const dbOperations = {
       (product) =>
         product.name.toLowerCase().includes(searchQuery) ||
         product.sku.toLowerCase().includes(searchQuery) ||
-        product.category.toLowerCase().includes(searchQuery)
+        product.category.toLowerCase().includes(searchQuery) ||
+        product.barcode?.toLocaleLowerCase().includes(searchQuery)
     );
   },
 

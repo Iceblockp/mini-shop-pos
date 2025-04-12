@@ -1,5 +1,11 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { Product, ProductVariant, dbOperations } from "../utils/database";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { Product, dbOperations } from "../utils/database";
 import { InventoryMovement } from "../utils/inventoryTypes";
 
 interface ProductContextType {
@@ -11,6 +17,7 @@ interface ProductContextType {
   updateProduct: (product: Product) => void;
   deleteProduct: (id: number) => void;
   searchProducts: (query: string) => void;
+  resetSearch: () => void;
   updateStockQuantity: (
     id: number,
     quantity: number,
@@ -18,7 +25,6 @@ interface ProductContextType {
     adjustmentType: "add" | "remove"
   ) => Promise<void>;
   getInventoryMovements: (productId: number) => Promise<InventoryMovement[]>;
-  getProductVariants: (productId: number) => Promise<ProductVariant[]>;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -137,15 +143,9 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const getProductVariants = async (productId: number) => {
-    try {
-      return await dbOperations.getProductVariants(productId);
-    } catch (err) {
-      setError("Failed to fetch product variants");
-      console.error("Error fetching product variants:", err);
-      return [];
-    }
-  };
+  const resetSearch = useCallback(() => {
+    refreshProducts();
+  }, []);
 
   const value = {
     products,
@@ -156,9 +156,9 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({
     updateProduct,
     deleteProduct,
     searchProducts,
+    resetSearch,
     updateStockQuantity,
     getInventoryMovements,
-    getProductVariants,
   };
 
   return (

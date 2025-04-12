@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrowserMultiFormatReader } from "@zxing/library";
+import { useZxing } from "react-zxing";
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
@@ -10,69 +10,37 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onScan,
   onError,
 }) => {
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string>("");
+  const scanSound = new Audio("/src/assets/sounds/scan.mp3");
+
+  const { ref } = useZxing({
+    onDecodeResult(result) {
+      const text = result.getText();
+      if (text && text.length > 0) {
+        scanSound.play();
+        onScan(text);
+      }
+    },
+  });
 
   useEffect(() => {
-    const codeReader = new BrowserMultiFormatReader();
-    const videoRef = document.getElementById("video") as HTMLVideoElement;
-
-    const startScanning = async () => {
-      if (!videoRef) {
-        setError("Video element not found");
-        return;
-      }
-
-      try {
-        // Request camera access
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-        setStream(stream);
-
-        // Set up video element
-        videoRef.srcObject = stream;
-        await videoRef.play();
-
-        // Start continuous scanning
-        codeReader.decodeFromVideoElement(
-          videoRef,
-          (result) => {
-            if (result) {
-              onScan(result.getText());
-            }
-          },
-          (err) => {
-            if (err && onError) {
-              onError(err);
-            }
-          }
-        );
-      } catch (err) {
-        setError("Failed to access camera");
-        if (onError && err instanceof Error) {
-          onError(err);
-        }
-      }
-    };
-
-    startScanning();
-
+    setIsScanning(true);
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-      if (videoRef) {
-        videoRef.srcObject = null;
-      }
-      codeReader.reset();
+      setIsScanning(false);
     };
-  }, [onScan, onError]);
+  }, []);
 
   return (
     <div className="barcode-scanner">
       <div className="camera-view">
-        <video id="video" autoPlay playsInline />
+        <video ref={ref} autoPlay playsInline />
+        <div className="scanning-overlay">
+          <div className="scanning-line" />
+        </div>
+        {isScanning && (
+          <div className="scanning-hint">Position barcode within frame</div>
+        )}
       </div>
       {error && <div className="error-message">{error}</div>}
       <style>
@@ -94,6 +62,38 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             width: 100%;
             height: 100%;
             object-fit: cover;
+          }
+          .scanning-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 200px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+          }
+          .scanning-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: #2196f3;
+            animation: scan 2s linear infinite;
+          }
+          @keyframes scan {
+            0% { top: 0; }
+            100% { top: 100%; }
+          }
+          .scanning-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
           }
           .error-message {
             color: #ff4444;

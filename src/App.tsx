@@ -73,7 +73,6 @@ function NavButtons() {
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
     { text: "Products", icon: <Inventory />, path: "/products" },
-    // { text: "Product Variants", icon: <Inventory />, path: "/variants" },
     { text: "Categories", icon: <Category />, path: "/categories" },
     { text: "Suppliers", icon: <AddIcon />, path: "/suppliers" },
     { text: "Sales", icon: <ShoppingCart />, path: "/sales" },

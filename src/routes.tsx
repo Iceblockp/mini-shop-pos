@@ -28,11 +28,7 @@ const Reports = lazy(() =>
     default: module.default,
   }))
 );
-// const ProductVariant = lazy(() =>
-//   import("./components/ProductVariant").then((module) => ({
-//     default: module.default,
-//   }))
-// );
+
 const SupplierManager = lazy(() =>
   import("./components/SupplierManager").then((module) => ({
     default: module.default,
@@ -72,10 +68,7 @@ export const routes: RouteObject[] = [
         path: "reports",
         element: <Reports />,
       },
-      // {
-      //   path: "variants",
-      //   element: <ProductVariant />,
-      // },
+
       {
         path: "suppliers",
         element: <SupplierManager />,

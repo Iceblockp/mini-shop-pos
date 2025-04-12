@@ -20,40 +20,72 @@ export const SalesPage: React.FC = () => {
 
   const handleBarcodeScan = async (barcode: string) => {
     try {
+      setError("");
       await searchProducts(barcode);
       const product = products.find((p) => p.barcode === barcode);
 
       if (!product) {
         setError("Product not found");
+        searchProducts("");
         return;
       }
 
-      setCart((prevCart) => {
-        const existingItem = prevCart.find((item) => item.barcode === barcode);
-        if (existingItem) {
-          return prevCart.map((item) =>
-            item.barcode === barcode
-              ? {
-                  ...item,
-                  quantity: item.quantity + 1,
-                  subtotal: (item.quantity + 1) * item.price,
-                }
-              : item
-          );
-        }
-        return [
-          ...prevCart,
-          { ...product, quantity: 1, subtotal: product.price },
-        ];
-      });
+      addToCart(product);
       setError("");
     } catch (err) {
       setError("Failed to add product to cart");
     }
   };
 
+  const getCartItemKey = (product: Product) => {
+    return `${product.id}`;
+  };
+
+  const addToCart = (product: Product) => {
+    setCart((prevCart) => {
+      const cartItemKey = getCartItemKey(product);
+      const existingItem = prevCart.find(
+        (item) => getCartItemKey(item) === cartItemKey
+      );
+
+      const currentStock = product.stockQuantity;
+
+      if (existingItem) {
+        if (existingItem.quantity >= currentStock) {
+          setError(
+            `Cannot add more items. Only ${currentStock} units available in stock.`
+          );
+          return prevCart;
+        }
+        return prevCart.map((item) =>
+          getCartItemKey(item) === cartItemKey
+            ? {
+                ...item,
+                quantity: item.quantity + 1,
+                subtotal: (item.quantity + 1) * product.price,
+              }
+            : item
+        );
+      }
+
+      if (currentStock <= 0) {
+        setError("This item is out of stock.");
+        return prevCart;
+      }
+
+      return [
+        ...prevCart,
+        {
+          ...product,
+          quantity: 1,
+          subtotal: product.price,
+        },
+      ];
+    });
+  };
+
   const calculateTotal = () => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
+    return cart.reduce((total, item) => total + item.subtotal, 0);
   };
 
   return (
@@ -62,7 +94,11 @@ export const SalesPage: React.FC = () => {
         <div className="mode-selector">
           <button
             className={`mode-button ${scannerActive ? "active" : ""}`}
-            onClick={() => setScannerActive(true)}
+            onClick={() => {
+              setScannerActive(true);
+              searchProducts("");
+              setSearchTerm("");
+            }}
           >
             Scan Barcode
           </button>
@@ -70,6 +106,8 @@ export const SalesPage: React.FC = () => {
             className={`mode-button ${!scannerActive ? "active" : ""}`}
             onClick={() => {
               setScannerActive(false);
+              searchProducts("");
+              setSearchTerm("");
             }}
           >
             Search Products
@@ -103,36 +141,26 @@ export const SalesPage: React.FC = () => {
                 )
                 .map((product) => (
                   <div
-                    key={product.barcode}
+                    key={product.id}
                     className="product-item"
                     onClick={() => {
-                      setCart((prevCart) => {
-                        const existingItem = prevCart.find(
-                          (item) => item.id === product.id
-                        );
-                        if (existingItem) {
-                          return prevCart.map((item) =>
-                            item.id === product.id
-                              ? {
-                                  ...item,
-                                  quantity: item.quantity + 1,
-                                  subtotal: (item.quantity + 1) * item.price,
-                                }
-                              : item
-                          );
-                        }
-                        return [
-                          ...prevCart,
-                          { ...product, quantity: 1, subtotal: product.price },
-                        ];
-                      });
+                      addToCart(product);
                       setError("");
                     }}
                   >
                     <span className="product-name">{product.name}</span>
-                    <span className="product-price">
-                      ${product.price.toFixed(2)}
-                    </span>
+                    <div className="product-details">
+                      <span className="product-price">
+                        ${product.price.toFixed(2)}
+                      </span>
+                      <span
+                        className={`stock-quantity ${
+                          product.stockQuantity < 10 ? "low-stock" : ""
+                        }`}
+                      >
+                        Stock: {product.stockQuantity}
+                      </span>
+                    </div>
                   </div>
                 ))}
             </div>
@@ -149,8 +177,8 @@ export const SalesPage: React.FC = () => {
           <span>Subtotal</span>
           <span>Action</span>
         </div>
-        {cart.map((item) => (
-          <div key={item.barcode} className="cart-item">
+        {cart.map((item, index) => (
+          <div key={index} className="cart-item">
             <span className="item-name">{item.name}</span>
             <span className="item-unit-price">${item.price.toFixed(2)}</span>
             <div className="quantity-controls">
@@ -160,7 +188,7 @@ export const SalesPage: React.FC = () => {
                   if (item.quantity > 1) {
                     setCart((prevCart) =>
                       prevCart.map((cartItem) =>
-                        cartItem.barcode === item.barcode
+                        getCartItemKey(cartItem) === getCartItemKey(item)
                           ? {
                               ...cartItem,
                               quantity: cartItem.quantity - 1,
@@ -180,15 +208,23 @@ export const SalesPage: React.FC = () => {
                 className="quantity-btn"
                 onClick={() => {
                   setCart((prevCart) =>
-                    prevCart.map((cartItem) =>
-                      cartItem.barcode === item.barcode
-                        ? {
-                            ...cartItem,
-                            quantity: cartItem.quantity + 1,
-                            subtotal: (cartItem.quantity + 1) * cartItem.price,
-                          }
-                        : cartItem
-                    )
+                    prevCart.map((cartItem) => {
+                      if (getCartItemKey(cartItem) === getCartItemKey(item)) {
+                        const currentStock = item.stockQuantity;
+                        if (cartItem.quantity >= currentStock) {
+                          setError(
+                            `Cannot add more items. Only ${currentStock} units available in stock.`
+                          );
+                          return cartItem;
+                        }
+                        return {
+                          ...cartItem,
+                          quantity: cartItem.quantity + 1,
+                          subtotal: (cartItem.quantity + 1) * cartItem.price,
+                        };
+                      }
+                      return cartItem;
+                    })
                   );
                 }}
               >
@@ -203,7 +239,8 @@ export const SalesPage: React.FC = () => {
               onClick={() => {
                 setCart((prevCart) =>
                   prevCart.filter(
-                    (cartItem) => cartItem.barcode !== item.barcode
+                    (cartItem) =>
+                      getCartItemKey(cartItem) !== getCartItemKey(item)
                   )
                 );
               }}
@@ -297,6 +334,22 @@ export const SalesPage: React.FC = () => {
 
           .product-item:hover {
             background-color: #f5f5f5;
+          }
+
+          .product-details {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+          }
+
+          .stock-quantity {
+            font-size: 0.8rem;
+            color: #666;
+          }
+
+          .stock-quantity.low-stock {
+            color: #ff4444;
           }
 
           .product-name {
@@ -454,6 +507,8 @@ export const SalesPage: React.FC = () => {
             margin-top: 1rem;
             grid-column: 1 / -1;
           }
+
+
 
           @media (max-width: 768px) {
             .sales-page {

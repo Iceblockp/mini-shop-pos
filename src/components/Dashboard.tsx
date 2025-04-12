@@ -59,6 +59,8 @@ const Dashboard: React.FC = () => {
       const transactions = await dbOperations.getAllTransactions();
       const products = await dbOperations.getAllProducts();
 
+      console.log("first", transactions, products);
+
       // Calculate today's transactions
       const todayTransactions = transactions.filter((t) => {
         const transactionDate = new Date(t.timestamp);

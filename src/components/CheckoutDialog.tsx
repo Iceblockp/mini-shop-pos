@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { CartItem } from "./SalesPage";
 import {
   PaymentDetails,
@@ -6,6 +6,11 @@ import {
   TransactionItem,
 } from "../utils/transactionTypes";
 import { dbOperations } from "../utils/database";
+import {
+  PaymentMethod,
+  defaultPaymentMethods,
+} from "../utils/paymentMethodTypes";
+import { useProducts } from "../contexts/ProductContext";
 
 interface CheckoutDialogProps {
   open: boolean;
@@ -22,42 +27,50 @@ export const CheckoutDialog: React.FC<CheckoutDialogProps> = ({
   totalAmount,
   onCheckoutComplete,
 }) => {
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentDetails["method"]>("cash");
-  const [cashAmount, setCashAmount] = useState<string>("");
-  const [cardLastFourDigits, setCardLastFourDigits] = useState<string>("");
-  const [mobilePaymentRef, setMobilePaymentRef] = useState<string>("");
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<
+    PaymentMethod[]
+  >(defaultPaymentMethods);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] =
+    useState<PaymentMethod>(defaultPaymentMethods[0]);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>("");
   const [processing, setProcessing] = useState(false);
+  const { refreshProducts } = useProducts();
+
+  useEffect(() => {
+    if (selectedPaymentMethod.id === "cash") {
+      setFieldValues({ amount: totalAmount.toString() });
+    } else {
+      setFieldValues({});
+    }
+  }, [selectedPaymentMethod, totalAmount]);
 
   const handleCheckout = async () => {
     try {
       setProcessing(true);
       setError("");
 
+      // Validate payment details
+      const validationResult = selectedPaymentMethod.validate(fieldValues);
+      if (!validationResult.isValid) {
+        throw new Error(validationResult.error || "Invalid payment details");
+      }
+
       let paymentDetails: PaymentDetails = {
-        method: paymentMethod,
+        method: selectedPaymentMethod.id as PaymentDetails["method"],
         amount: totalAmount,
+        ...fieldValues,
       };
 
-      // Validate payment details based on method
-      if (paymentMethod === "cash") {
-        const cashPaid = parseFloat(cashAmount);
-        if (isNaN(cashPaid) || cashPaid < totalAmount) {
-          throw new Error("Invalid cash amount");
+      // Calculate change for cash payments
+      if (selectedPaymentMethod.id === "cash") {
+        const cashPaid = parseFloat(fieldValues.amount);
+        if (cashPaid < totalAmount) {
+          throw new Error(
+            "Cash amount must be greater than or equal to total amount"
+          );
         }
-        paymentDetails.amount = cashPaid;
         paymentDetails.change = cashPaid - totalAmount;
-      } else if (paymentMethod === "card") {
-        if (!cardLastFourDigits || cardLastFourDigits.length !== 4) {
-          throw new Error("Invalid card details");
-        }
-        paymentDetails.cardLastFourDigits = cardLastFourDigits;
-      } else if (paymentMethod === "mobile") {
-        if (!mobilePaymentRef) {
-          throw new Error("Mobile payment reference is required");
-        }
-        paymentDetails.mobilePaymentReference = mobilePaymentRef;
       }
 
       // Create transaction items from cart
@@ -78,8 +91,28 @@ export const CheckoutDialog: React.FC<CheckoutDialogProps> = ({
         status: "completed",
       };
 
+      // Validate stock quantities before proceeding
+      const products = await dbOperations.getAllProducts();
+      for (const item of cart) {
+        const product = products.find((p) => p.id === item.id);
+        if (!product) {
+          throw new Error(`Product ${item.name} not found`);
+        }
+
+        const currentStock = product.stockQuantity;
+
+        if (typeof currentStock !== "number" || currentStock < item.quantity) {
+          throw new Error(
+            `Insufficient stock for ${item.name}. Only ${currentStock} units available.`
+          );
+        }
+      }
+
       // Save transaction and update inventory
       await dbOperations.createTransaction(transaction);
+
+      // Refresh products to update stock quantities in UI
+      await refreshProducts();
 
       onCheckoutComplete();
       onClose();
@@ -99,14 +132,17 @@ export const CheckoutDialog: React.FC<CheckoutDialogProps> = ({
 
         <div className="cart-summary">
           <h3>Cart Summary</h3>
-          {cart.map((item) => (
-            <div key={item.id} className="summary-item">
-              <span>
-                {item.name} x {item.quantity}
-              </span>
-              <span>${item.subtotal.toFixed(2)}</span>
-            </div>
-          ))}
+          {cart.map((item) => {
+            const itemKey = `${item.id}`;
+            return (
+              <div key={itemKey} className="summary-item">
+                <span>
+                  {item.name} x {item.quantity}
+                </span>
+                <span>${item.subtotal.toFixed(2)}</span>
+              </div>
+            );
+          })}
           <div className="total-amount">
             <strong>Total Amount:</strong>
             <strong>${totalAmount.toFixed(2)}</strong>
@@ -116,85 +152,53 @@ export const CheckoutDialog: React.FC<CheckoutDialogProps> = ({
         <div className="payment-section">
           <h3>Payment Method</h3>
           <div className="payment-methods">
-            <button
-              className={`method-button ${
-                paymentMethod === "cash" ? "active" : ""
-              }`}
-              onClick={() => setPaymentMethod("cash")}
-            >
-              Cash
-            </button>
-            <button
-              className={`method-button ${
-                paymentMethod === "card" ? "active" : ""
-              }`}
-              onClick={() => setPaymentMethod("card")}
-            >
-              Card
-            </button>
-            <button
-              className={`method-button ${
-                paymentMethod === "mobile" ? "active" : ""
-              }`}
-              onClick={() => setPaymentMethod("mobile")}
-            >
-              Mobile Payment
-            </button>
+            {availablePaymentMethods.map((method) => (
+              <button
+                key={method.id}
+                className={`method-button ${
+                  selectedPaymentMethod.id === method.id ? "active" : ""
+                }`}
+                onClick={() => setSelectedPaymentMethod(method)}
+              >
+                {method.name}
+              </button>
+            ))}
           </div>
 
-          {paymentMethod === "cash" && (
-            <div className="payment-details">
-              <label>
-                Cash Amount:
+          <div className="payment-details">
+            {selectedPaymentMethod.fields.map((field) => (
+              <label key={field.name}>
+                {field.label}:
                 <input
-                  type="number"
-                  value={cashAmount}
-                  onChange={(e) => setCashAmount(e.target.value)}
-                  placeholder="Enter cash amount"
-                  min={totalAmount}
-                  step="0.01"
-                />
-              </label>
-              {cashAmount && (
-                <div className="change-amount">
-                  Change: ${(parseFloat(cashAmount) - totalAmount).toFixed(2)}
-                </div>
-              )}
-            </div>
-          )}
-
-          {paymentMethod === "card" && (
-            <div className="payment-details">
-              <label>
-                Last 4 Digits:
-                <input
-                  type="text"
-                  value={cardLastFourDigits}
+                  type={field.type}
+                  value={fieldValues[field.name] || ""}
                   onChange={(e) =>
-                    setCardLastFourDigits(
-                      e.target.value.replace(/\D/g, "").slice(0, 4)
-                    )
+                    setFieldValues({
+                      ...fieldValues,
+                      [field.name]: e.target.value,
+                    })
                   }
-                  placeholder="Enter last 4 digits"
-                  maxLength={4}
+                  placeholder={field.placeholder}
+                  {...(field.validation || {})}
                 />
+                {field.validation?.errorMessage &&
+                  fieldValues[field.name] &&
+                  !selectedPaymentMethod.validate({
+                    [field.name]: fieldValues[field.name],
+                  }).isValid && (
+                    <div className="field-error">
+                      {field.validation.errorMessage}
+                    </div>
+                  )}
               </label>
-            </div>
-          )}
-
-          {paymentMethod === "mobile" && (
-            <div className="payment-details">
-              <label>
-                Payment Reference:
-                <input
-                  type="text"
-                  value={mobilePaymentRef}
-                  onChange={(e) => setMobilePaymentRef(e.target.value)}
-                  placeholder="Enter payment reference"
-                />
-              </label>
-            </div>
-          )}
+            ))}
+            {selectedPaymentMethod.id === "cash" && fieldValues.amount && (
+              <div className="change-amount">
+                Change: $
+                {(parseFloat(fieldValues.amount) - totalAmount).toFixed(2)}
+              </div>
+            )}
+          </div>
         </div>
 
         {error && <div className="error-message">{error}</div>}
