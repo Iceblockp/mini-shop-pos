@@ -14,7 +14,6 @@ import {
   Box,
 } from "@mui/material";
 import { dbOperations } from "../utils/database";
-import { Transaction } from "../utils/transactionTypes";
 
 interface SalesMetrics {
   totalSales: number;

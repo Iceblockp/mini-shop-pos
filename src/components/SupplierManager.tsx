@@ -16,8 +16,6 @@ import {
   TableRow,
   Paper,
   Typography,
-  Card,
-  CardContent,
   Grid,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";

@@ -49,7 +49,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const { addProduct, updateProduct } = useProducts();
   const [formData, setFormData] = useState<Product>(product || initialProduct);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [error, setError] = useState<string>("");
+  // const [error, setError] = useState<string>("");
 
   useEffect(() => {
     loadCategories();
@@ -61,10 +61,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
       if (Array.isArray(loadedCategories)) {
         setCategories(loadedCategories);
       } else {
-        setError("Invalid categories data");
+        // setError("Invalid categories data");
       }
     } catch (err) {
-      setError("Failed to load categories");
+      // setError("Failed to load categories");
       console.error("Error loading categories:", err);
     }
   };

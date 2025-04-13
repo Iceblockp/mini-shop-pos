@@ -8,10 +8,10 @@ interface BarcodeScannerProps {
 
 export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onScan,
-  onError,
+  // onError,
 }) => {
   const [isScanning, setIsScanning] = useState(false);
-  const [error, setError] = useState<string>("");
+  // const [error, setError] = useState<string>("");
   const scanSound = new Audio("/src/assets/sounds/scan.mp3");
 
   const { ref } = useZxing({
@@ -42,7 +42,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           <div className="scanning-hint">Position barcode within frame</div>
         )}
       </div>
-      {error && <div className="error-message">{error}</div>}
+      {/* {error && <div className="error-message">{error}</div>} */}
       <style>
         {`
           .barcode-scanner {

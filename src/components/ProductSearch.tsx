@@ -14,8 +14,6 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
   const filteredProducts = products.filter(
     (product) =>
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

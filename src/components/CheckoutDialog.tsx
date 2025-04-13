@@ -27,9 +27,9 @@ export const CheckoutDialog: React.FC<CheckoutDialogProps> = ({
   totalAmount,
   onCheckoutComplete,
 }) => {
-  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<
-    PaymentMethod[]
-  >(defaultPaymentMethods);
+  // const [availablePaymentMethods, setAvailablePaymentMethods] = useState<
+  //   PaymentMethod[]
+  // >(defaultPaymentMethods);
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     useState<PaymentMethod>(defaultPaymentMethods[0]);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -56,7 +56,7 @@ export const CheckoutDialog: React.FC<CheckoutDialogProps> = ({
         throw new Error(validationResult.error || "Invalid payment details");
       }
 
-      let paymentDetails: PaymentDetails = {
+      const paymentDetails: PaymentDetails = {
         method: selectedPaymentMethod.id as PaymentDetails["method"],
         amount: totalAmount,
         ...fieldValues,
@@ -152,7 +152,7 @@ export const CheckoutDialog: React.FC<CheckoutDialogProps> = ({
         <div className="payment-section">
           <h3>Payment Method</h3>
           <div className="payment-methods">
-            {availablePaymentMethods.map((method) => (
+            {defaultPaymentMethods.map((method) => (
               <button
                 key={method.id}
                 className={`method-button ${
